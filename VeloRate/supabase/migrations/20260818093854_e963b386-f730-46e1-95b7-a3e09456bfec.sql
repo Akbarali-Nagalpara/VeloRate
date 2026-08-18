@@ -1,0 +1,156 @@
+CREATE TYPE public.part_status AS ENUM ('ACTIVE','INACTIVE');
+CREATE TYPE public.configuration_type AS ENUM ('PREDEFINED','CUSTOM');
+
+CREATE TABLE public.parts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  category text NOT NULL,
+  description text,
+  status public.part_status NOT NULL DEFAULT 'ACTIVE',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT ALL ON public.parts TO service_role;
+ALTER TABLE public.parts ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.part_prices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  part_id uuid NOT NULL REFERENCES public.parts(id) ON DELETE CASCADE,
+  price numeric(12,2) NOT NULL CHECK (price >= 0),
+  effective_from date NOT NULL,
+  effective_to date,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (effective_to IS NULL OR effective_to > effective_from)
+);
+CREATE INDEX part_prices_part_idx ON public.part_prices(part_id, effective_from DESC);
+GRANT ALL ON public.part_prices TO service_role;
+ALTER TABLE public.part_prices ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.reject_overlapping_part_prices()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE conflict_row public.part_prices;
+BEGIN
+  SELECT * INTO conflict_row FROM public.part_prices p
+  WHERE p.part_id = NEW.part_id
+    AND p.id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
+    AND daterange(p.effective_from, p.effective_to, '[)')
+        && daterange(NEW.effective_from, NEW.effective_to, '[)')
+  LIMIT 1;
+
+  IF conflict_row.id IS NOT NULL THEN
+    RAISE EXCEPTION 'OVERLAPPING_PRICE_PERIOD: conflicts with price % effective from % to %',
+      conflict_row.price, conflict_row.effective_from,
+      COALESCE(conflict_row.effective_to::text, 'open');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER part_prices_no_overlap
+BEFORE INSERT OR UPDATE ON public.part_prices
+FOR EACH ROW EXECUTE FUNCTION public.reject_overlapping_part_prices();
+
+CREATE TABLE public.configurations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  type public.configuration_type NOT NULL DEFAULT 'CUSTOM',
+  derived_from_id uuid REFERENCES public.configurations(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT ALL ON public.configurations TO service_role;
+ALTER TABLE public.configurations ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.configuration_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  configuration_id uuid NOT NULL REFERENCES public.configurations(id) ON DELETE CASCADE,
+  part_id uuid NOT NULL REFERENCES public.parts(id) ON DELETE RESTRICT,
+  quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  UNIQUE (configuration_id, part_id)
+);
+GRANT ALL ON public.configuration_items TO service_role;
+ALTER TABLE public.configuration_items ENABLE ROW LEVEL SECURITY;
+
+-- Seed parts
+INSERT INTO public.parts (id, name, category, description, status) VALUES
+ ('11111111-1111-4111-8111-000000000001','Mountain Frame','Frame','Aluminium hardtail mountain frame','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000002','City Frame','Frame','Steel step-through city frame','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000003','Trail Frame Pro','Frame','Reinforced trail frame with rear suspension mount','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000004','Kids Frame 16"','Frame','Lightweight kids frame','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000005','18-Speed Gear Set','Gear Set','Indexed 18-speed derailleur set','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000006','21-Speed Gear Set','Gear Set','Premium 21-speed derailleur set','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000007','Single Speed Drive','Gear Set','Simple single speed drivetrain','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000008','Mountain Tyre','Tyre','26" knobby off-road tyre','ACTIVE'),
+ ('11111111-1111-4111-8111-000000000009','Road Tyre','Tyre','700c slick road tyre','ACTIVE'),
+ ('11111111-1111-4111-8111-00000000000a','Old Tyre','Tyre','Discontinued tyre model','INACTIVE'),
+ ('11111111-1111-4111-8111-00000000000b','Hydraulic Brake','Brake','Hydraulic disc brake assembly','ACTIVE'),
+ ('11111111-1111-4111-8111-00000000000c','V-Brake','Brake','Rim V-brake assembly','ACTIVE'),
+ ('11111111-1111-4111-8111-00000000000d','Comfort Saddle','Saddle','Gel comfort saddle','ACTIVE'),
+ ('11111111-1111-4111-8111-00000000000e','LED Headlamp','Accessory','Rechargeable LED headlamp','ACTIVE');
+
+-- Seed effective-dated prices
+INSERT INTO public.part_prices (part_id, price, effective_from, effective_to) VALUES
+ ('11111111-1111-4111-8111-000000000001',4600,'2025-01-01','2025-07-01'),
+ ('11111111-1111-4111-8111-000000000001',4800,'2025-07-01','2026-01-01'),
+ ('11111111-1111-4111-8111-000000000001',5000,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-000000000002',3800,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-000000000002',4100,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-000000000003',7200,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-000000000003',7600,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-000000000004',2400,'2025-01-01',NULL),
+ ('11111111-1111-4111-8111-000000000005',2200,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-000000000005',2500,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-000000000006',3400,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-000000000006',3700,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-000000000007',900,'2025-01-01',NULL),
+ ('11111111-1111-4111-8111-000000000008',950,'2025-01-01','2025-07-01'),
+ ('11111111-1111-4111-8111-000000000008',1050,'2025-07-01','2026-01-01'),
+ ('11111111-1111-4111-8111-000000000008',1200,'2026-01-01','2026-06-01'),
+ ('11111111-1111-4111-8111-000000000008',1350,'2026-06-01',NULL),
+ ('11111111-1111-4111-8111-000000000009',1300,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-000000000009',1450,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-00000000000a',900,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-00000000000b',760,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-00000000000b',800,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-00000000000c',450,'2025-01-01',NULL),
+ ('11111111-1111-4111-8111-00000000000d',620,'2025-01-01','2026-01-01'),
+ ('11111111-1111-4111-8111-00000000000d',680,'2026-01-01',NULL),
+ ('11111111-1111-4111-8111-00000000000e',540,'2025-01-01',NULL);
+
+-- Seed predefined configurations
+INSERT INTO public.configurations (id, name, description, type) VALUES
+ ('22222222-2222-4222-8222-000000000001','Mountain Pro','Off-road hardtail built for trails and rough terrain','PREDEFINED'),
+ ('22222222-2222-4222-8222-000000000002','Trail Master','Premium trail cycle with 21-speed drivetrain','PREDEFINED'),
+ ('22222222-2222-4222-8222-000000000003','City Rider','Everyday commuter with comfort saddle','PREDEFINED'),
+ ('22222222-2222-4222-8222-000000000004','Urban Glide','Single-speed urban cycle with LED lighting','PREDEFINED'),
+ ('22222222-2222-4222-8222-000000000005','Kids Explorer','16-inch kids cycle with rim brakes','PREDEFINED');
+
+INSERT INTO public.configuration_items (configuration_id, part_id, quantity) VALUES
+ ('22222222-2222-4222-8222-000000000001','11111111-1111-4111-8111-000000000001',1),
+ ('22222222-2222-4222-8222-000000000001','11111111-1111-4111-8111-000000000005',1),
+ ('22222222-2222-4222-8222-000000000001','11111111-1111-4111-8111-000000000008',2),
+ ('22222222-2222-4222-8222-000000000001','11111111-1111-4111-8111-00000000000b',2),
+ ('22222222-2222-4222-8222-000000000002','11111111-1111-4111-8111-000000000003',1),
+ ('22222222-2222-4222-8222-000000000002','11111111-1111-4111-8111-000000000006',1),
+ ('22222222-2222-4222-8222-000000000002','11111111-1111-4111-8111-000000000008',2),
+ ('22222222-2222-4222-8222-000000000002','11111111-1111-4111-8111-00000000000b',2),
+ ('22222222-2222-4222-8222-000000000002','11111111-1111-4111-8111-00000000000d',1),
+ ('22222222-2222-4222-8222-000000000003','11111111-1111-4111-8111-000000000002',1),
+ ('22222222-2222-4222-8222-000000000003','11111111-1111-4111-8111-000000000005',1),
+ ('22222222-2222-4222-8222-000000000003','11111111-1111-4111-8111-000000000009',2),
+ ('22222222-2222-4222-8222-000000000003','11111111-1111-4111-8111-00000000000c',2),
+ ('22222222-2222-4222-8222-000000000003','11111111-1111-4111-8111-00000000000d',1),
+ ('22222222-2222-4222-8222-000000000004','11111111-1111-4111-8111-000000000002',1),
+ ('22222222-2222-4222-8222-000000000004','11111111-1111-4111-8111-000000000007',1),
+ ('22222222-2222-4222-8222-000000000004','11111111-1111-4111-8111-000000000009',2),
+ ('22222222-2222-4222-8222-000000000004','11111111-1111-4111-8111-00000000000c',2),
+ ('22222222-2222-4222-8222-000000000004','11111111-1111-4111-8111-00000000000e',1),
+ ('22222222-2222-4222-8222-000000000005','11111111-1111-4111-8111-000000000004',1),
+ ('22222222-2222-4222-8222-000000000005','11111111-1111-4111-8111-000000000007',1),
+ ('22222222-2222-4222-8222-000000000005','11111111-1111-4111-8111-000000000008',2),
+ ('22222222-2222-4222-8222-000000000005','11111111-1111-4111-8111-00000000000c',2);
