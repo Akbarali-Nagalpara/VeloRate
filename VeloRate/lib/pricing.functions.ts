@@ -7,7 +7,7 @@ const itemsSchema = z
   .max(60);
 
 export const listPartsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         asOf: isoDate,
@@ -23,7 +23,7 @@ export const listPartsFn = createServerFn({ method: "GET" })
   });
 
 export const getPartFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().uuid(), asOf: isoDate }).parse(data),
   )
   .handler(async ({ data }) => {
@@ -32,7 +32,7 @@ export const getPartFn = createServerFn({ method: "GET" })
   });
 
 export const createPartFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         name: z.string().min(2).max(80),
@@ -49,7 +49,7 @@ export const createPartFn = createServerFn({ method: "POST" })
   });
 
 export const setPartStatusFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().uuid(), status: z.enum(["ACTIVE", "INACTIVE"]) }).parse(data),
   )
   .handler(async ({ data }) => {
@@ -58,7 +58,7 @@ export const setPartStatusFn = createServerFn({ method: "POST" })
   });
 
 export const addPartPriceFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         partId: z.string().uuid(),
@@ -74,7 +74,7 @@ export const addPartPriceFn = createServerFn({ method: "POST" })
   });
 
 export const listConfigurationsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         asOf: isoDate,
@@ -89,7 +89,7 @@ export const listConfigurationsFn = createServerFn({ method: "GET" })
   });
 
 export const getConfigurationFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ id: z.string().uuid(), asOf: isoDate }).parse(data),
   )
   .handler(async ({ data }) => {
@@ -98,14 +98,14 @@ export const getConfigurationFn = createServerFn({ method: "GET" })
   });
 
 export const calculateBreakdownFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => z.object({ items: itemsSchema, asOf: isoDate }).parse(data))
+  .validator((data: unknown) => z.object({ items: itemsSchema, asOf: isoDate }).parse(data))
   .handler(async ({ data }) => {
     const { calculateBreakdown } = await import("./pricing/service.server");
     return calculateBreakdown(data);
   });
 
 export const saveConfigurationFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         id: z.string().uuid().optional(),
@@ -123,21 +123,21 @@ export const saveConfigurationFn = createServerFn({ method: "POST" })
   });
 
 export const deleteConfigurationFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
     const { deleteConfiguration } = await import("./pricing/service.server");
     return deleteConfiguration(data);
   });
 
 export const listPriceChangesFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => z.object({ asOf: isoDate }).parse(data))
+  .validator((data: unknown) => z.object({ asOf: isoDate }).parse(data))
   .handler(async ({ data }) => {
     const { listPriceChanges } = await import("./pricing/service.server");
     return listPriceChanges(data);
   });
 
 export const getPriceImpactFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         asOf: isoDate,
@@ -152,7 +152,7 @@ export const getPriceImpactFn = createServerFn({ method: "GET" })
   });
 
 export const getDashboardFn = createServerFn({ method: "GET" })
-  .inputValidator((data: unknown) => z.object({ asOf: isoDate }).parse(data))
+  .validator((data: unknown) => z.object({ asOf: isoDate }).parse(data))
   .handler(async ({ data }) => {
     const { getDashboard } = await import("./pricing/service.server");
     return getDashboard(data);

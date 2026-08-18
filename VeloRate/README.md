@@ -11,16 +11,15 @@ VeloRate is a comprehensive, intuitive cycle configuration and pricing intellige
 - **Price Impact Analysis:** Visibility into how changing a specific part's price affects all configurations utilizing that part.
 
 ## Tech Stack
-- **Frontend:** React, Vite, Tailwind CSS, Radix UI
-- **Routing:** TanStack Router
-- **API:** TanStack Start (Server Functions)
+- **Frontend/Backend:** Next.js, React, Tailwind CSS, Radix UI
+- **Routing:** Next.js App Router
 - **Database/Auth:** Supabase (PostgreSQL)
 
 ## Architecture
 ```text
-Frontend (React / Vite)
+Frontend (React / Next.js)
    ↓
-API (TanStack Start Server Functions)
+API (Next.js API Routes / Server Actions)
    ↓
 Database (Supabase PostgreSQL)
 ```
