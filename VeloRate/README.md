@@ -1,7 +1,7 @@
 # VeloRate — Cycle Pricing Engine
 
 ## Overview
-VeloRate is a comprehensive, intuitive cycle configuration and pricing intelligence workspace built for Hero Cycles salespersons. It eliminates manual Excel-based pricing management by providing a centralized database of parts, historical/future pricing, and dynamically calculated cycle configuration prices.
+VeloRate is a comprehensive, intuitive cycle configuration and pricing intelligence workspace built for VeloRate salespersons. It eliminates manual Excel-based pricing management by providing a centralized database of parts, historical/future pricing, and dynamically calculated cycle configuration prices.
 
 ## Features
 - **Parts Management:** View, create, and manage cycle components.
@@ -84,4 +84,4 @@ The application will start on `http://localhost:5173` (default Vite port).
 
 ## Documentation
 For complete details on the architecture, features, database schema, and design philosophy, refer to the full PDF documentation:
-[VeloRate Documentation](docs/Hero-Cycles-Pricing-Engine-Documentation.pdf)
+[VeloRate Documentation](docs/VeloRate-Final-Assessment-Submission.pdf)
