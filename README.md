@@ -1,5 +1,7 @@
 # VeloRate — Cycle Pricing Engine
 
+**Live Project URL:** [https://velorate-01.vercel.app/](https://velorate-01.vercel.app/)
+
 VeloRate is a robust, dynamic pricing engine and quoting application engineered specifically for the cycle manufacturing and retail industry.
 
 ## 1. Project Overview
